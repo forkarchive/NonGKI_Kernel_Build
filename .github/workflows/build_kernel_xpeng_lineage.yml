@@ -392,31 +392,19 @@ jobs:
             fi
           fi
 
-      - name: Extra Kernel Options
-        run: |
-          # Only ${{ env.DEVICE_NAME }} use it.
-          cd $GITHUB_WORKSPACE/device_kernel
-          # echo "CONFIG_CPU_BIG_ENDIAN=n" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          # echo "CONFIG_COMPAT_VDSO=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          # echo "CONFIG_LTO_NONE=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          # echo "CONFIG_INIT_STACK_NONE=y" >> ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          # sed -i 's/# CONFIG_SECCOMP is not set/CONFIG_SECCOMP=y/' ./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-
       - name: Added mkdtboimg to kernel (Experiment)
         if: env.HAVE_NO_DTBO == 'true' && env.HAVE_NO_DTBO_TOOL != 'true'
         run: |
-          cd $GITHUB_WORKSPACE/device_kernel/scripts/dtc
-          wget https://android.googlesource.com/platform/system/libufdt/+archive/refs/heads/main/utils/src.tar.gz
-          tar zxvf src.tar.gz
-          rm -f src.tar.gz
-
           cd $GITHUB_WORKSPACE/device_kernel
-          cp /tmp/Patches/temp_dtbo.patch ./
-          patch -p1 < temp_dtbo.patch
-          sed -i '/targets := Image Image.bz2 Image.gz Image.lz4 Image.lzma Image.lzo/s/$/ dtbo.img/' ./arch/arm64/boot/Makefile
-          sed -i '/$(obj)\/Image\.gz-dtb: $(obj)\/Image\.gz $(DTB_OBJS) FORCE/a \#DTBO\n$(obj)\/dtbo.img: $(DTBO_OBJS) FORCE\n\t$(call if_changed,mkdtimg)' ./arch/arm64/boot/Makefile
-          sed -i '/KBUILD_DTBS\t:= dtbs/a \#DTBO\nKBUILD_DTBO_IMG := dtbo.img' ./arch/arm64/Makefile
-          sed -i '/dtc-tmp = $(subst $(comma),_,$(dot-target)\.dts\.tmp)/a \#DTBO\n# mkdtimg\n#----------------------------------------------------------------------------\nquiet_cmd_mkdtimg = DTBOIMG $@\ncmd_mkdtimg = python3 $(srctree)\/scripts\/dtc\/mkdtboimg.py create $@ --page_size=4096 $(filter-out FORCE,$^)' ./scripts/Makefile.lib
+          sed -i '/^DTB_OBJS :=/a DTBO_OBJS := $(shell find $(obj)/dts/ -name *.dtbo)' arch/arm64/boot/Makefile
+          printf "\n" >> arch/arm64/Makefile
+          printf "ifeq (\$(CONFIG_BUILD_ARM64_DT_OVERLAY),y)\n" >> arch/arm64/Makefile
+          printf "\$(KBUILD_DTBO_IMG): dtbs\n" >> arch/arm64/Makefile
+          printf "\t\$(Q)\$(MAKE) \$(build)=\$(boot) \$(boot)/\$@\n" >> arch/arm64/Makefile
+          printf "\n" >> arch/arm64/Makefile
+          printf "all: \$(KBUILD_DTBO_IMG)\n" >> arch/arm64/Makefile
+          printf "endif\n" >> arch/arm64/Makefile
+
 
       - name: Setup LXC (Experiment)
         if: env.LXC_ENABLE == 'true'
