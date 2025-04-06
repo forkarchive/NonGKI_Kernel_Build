@@ -38,16 +38,6 @@ for i in "${patch_files[@]}"; do
         fi
         ;;
 
-    # kernel/ changes
-    ## kernel/cred.c
-    kernel/cred.c)
-        if grep -q "atomic_long_inc_not_zero" kernel/cred.c; then
-            sed -i "s/!atomic_long_inc_not_zero(&((struct cred \*)cred)->usage)/!get_cred_rcu(cred)/g" kernel/cred.c
-        else
-            sed -i "s/!atomic_inc_not_zero(&((struct cred \*)cred)->usage)/!get_cred_rcu(cred)/g" kernel/cred.c
-        fi
-        ;;
-
     ## include/linux/uaccess.h
     include/linux/uaccess.h)
         sed -i 's/^extern long strncpy_from_unsafe_user/long strncpy_from_user_nofault/' include/linux/uaccess.h
